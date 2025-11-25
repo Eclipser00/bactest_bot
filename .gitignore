@@ -28,6 +28,14 @@ wheels/
 .installed.cfg
 *.egg
 
+# Archivos de configuración sensibles
+.env
+.env.local
+.env.*.local
+
+# Archivos específicos del proyecto
+strategies.py
+
 # Archivos de datos (CSV grandes)
 data01/
 data02/
