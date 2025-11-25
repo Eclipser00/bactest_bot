@@ -1,5 +1,11 @@
 # Flujo propuesto para v6.0 (con anti-overfitting y mesetas):
 
+## Disclaimer
+
+**Todo el código de este proyecto ha sido desarrollado utilizando vibe coding (codificación asistida por IA).**
+
+Este proyecto es el resultado de desarrollo colaborativo con herramientas de inteligencia artificial. El código ha sido generado y refinado mediante asistencia de IA, siguiendo las mejores prácticas de programación y los estándares establecidos en el proyecto.
+
 ## Preparación inicial
 
 Tú pones CSV en /data.
