@@ -10,7 +10,7 @@ Este proyecto es el resultado de desarrollo colaborativo con herramientas de int
 
 Tú pones CSV en /data.
 
-Configuras main.py (qué estrategias, optimización, parámetros, formato, tipo de chequeo de overfitting: CSCV, DSR, etc.).
+Configuras config.py (qué estrategias, optimización, parámetros, formato, tipo de chequeo de overfitting: CSCV, DSR, etc.).
 
 ## Carga de datos
 
