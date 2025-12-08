@@ -34,8 +34,8 @@ wheels/
 .env.*.local
 
 # Archivos específicos del proyecto
-strategies.py
-config.py
+# strategies.py
+# config.py
 
 # Archivos de datos (CSV grandes)
 data01/
