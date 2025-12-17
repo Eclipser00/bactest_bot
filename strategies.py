@@ -936,8 +936,6 @@ class Bollinger_Ratio(_BaseLoggedStrategy):
             names=['Ratio_BB_Upper', 'Ratio_BB_Middle', 'Ratio_BB_Lower', 'PIVOT_LAST_MAX', 'PIVOT_LAST_MIN']
         )
 
-########################################################################################################################
-
 # ==========================================================================
 # ESTRATEGIAS DE EVALUACION EN MULTIACTIVO BASADAS EN ESTRATEGIAS INICIALES 
 # ==========================================================================
@@ -1283,5 +1281,3 @@ def make_multi(strategy_cls):
 
     _AutoMulti.__name__ = f"{strategy_cls.__name__}"
     return _AutoMulti
-
-

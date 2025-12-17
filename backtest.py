@@ -255,11 +255,21 @@ class Backtest:
 
         # 9) Indicators (equity + drawdown + opcionales exportados por estrategia)
         ind = pd.DataFrame({"equity": equity, "drawdown": drawdown})
+        indicator_colors = {}  # Metadata de colores para plotting
         if hasattr(strat, "export_indicators") and callable(strat.export_indicators):
             try:
                 extra = strat.export_indicators() or {}
                 _log(f"[Backtest] Indicadores exportados: {list(extra.keys())}")
+                
+                # Extraer metadata de colores si existe
+                if '_colors' in extra:
+                    indicator_colors = extra.pop('_colors')
+                    _log(f"[Backtest] Colores personalizados: {list(indicator_colors.keys())}")
+                
                 for k, v in extra.items():
+                    # Saltar keys de metadata (empiezan con _)
+                    if k.startswith('_'):
+                        continue
                     if v and len(v) > 0:  # Verificar que hay datos
                         # Crear serie con el mismo índice que equity
                         ser = pd.Series(v, index=equity.index[:len(v)])
@@ -275,6 +285,7 @@ class Backtest:
                 import traceback
                 _log(f"[Backtest][WARN] Traceback: {traceback.format_exc()}")
         df_indicators = ind.copy()
+        df_indicators.attrs['_colors'] = indicator_colors  # Guardar colores como metadata
         _log(f"[Backtest] Indicators listos: {list(df_indicators.columns)}")
 
         _log("[Backtest] ====== FIN run_backtrader_core ======\n")
@@ -582,6 +593,11 @@ class Plots:
         
         # Convertir indicadores a formato esperado por max_min_plot
         indicators_list = []
+        # Leer metadata de colores si existe
+        indicator_colors = indicators_df.attrs.get('_colors', {})
+        if indicator_colors:
+            _log(f"[Plots] Colores personalizados disponibles: {list(indicator_colors.keys())}")
+        
         if not indicators_df.empty:
             _log(f"[Plots] Procesando indicators_df con columnas: {list(indicators_df.columns)}")
             for col in indicators_df.columns:
@@ -591,14 +607,17 @@ class Plots:
                     if col.upper() in ['ADX', 'RSI', 'MACD', 'STOCH', 'RSI_SMA']:  # Osciladores conocidos
                         is_overlay = False
                     
+                    # Usar color personalizado si existe
+                    custom_color = indicator_colors.get(col, None)
+                    
                     indicators_list.append({
                         'name': col,
                         'values': indicators_df[col],
                         'overlay': is_overlay,
-                        'color': None,  # Se asignará automáticamente
+                        'color': custom_color,  # Usar color personalizado o None
                         'line_style': 'solid'
                     })
-                    _log(f"[Plots] Indicador {col} agregado (overlay={is_overlay})")
+                    _log(f"[Plots] Indicador {col} agregado (overlay={is_overlay}, color={custom_color})")
         else:
             _log(f"[Plots][WARN] indicators_df está vacío")
         
