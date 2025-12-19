@@ -233,7 +233,11 @@ def main() -> None:
     print(f"\n[MAIN] Estrategias a ejecutar: {len(strategies)}")
     for strat_cls in strategies:
         print(f"  - {strat_cls.__name__}")
-    is_multi_run = all(issubclass(strat_cls, StrategyMultiAsset) for strat_cls in strategies)
+    # Detectar modo multi: multi-asset O multi-timeframe
+    is_multi_run = all(
+        issubclass(strat_cls, StrategyMultiAsset) or getattr(strat_cls, '_is_multi_tf', False)
+        for strat_cls in strategies
+    )
     print(f"[MAIN] Modo multi-activo: {is_multi_run}")
 
     # ------------------------------------------------------------------
