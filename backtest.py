@@ -254,7 +254,63 @@ class Backtest:
         _log(f"[Backtest] Métricas calculadas -> columnas: {list(df_metrics.columns)}")
 
         # 9) Indicators (equity + drawdown + opcionales exportados por estrategia)
-        ind = pd.DataFrame({"equity": equity, "drawdown": drawdown})
+        # IMPORTANTE:
+        # - En algunos entornos (versiones de Backtrader/Pandas), la serie de retornos del analyzer
+        #   puede tener 1..N puntos menos que el DataFrame OHLCV base.
+        # - Los indicadores exportados desde Backtrader (`line.array`) suelen tener longitud ~= len(data)
+        #   (incluyendo warmup con NaN), y por tanto pueden venir MÁS largos que `equity`.
+        # - En Windows esto puede “casar” por casualidad, pero en Linux/VPS es común ver desajustes
+        #   y que falle el armado de `df_indicators`, dejando las líneas (p.ej. zonas pivote) fuera del plot.
+        #
+        # Decisión:
+        # - Usamos el índice del primer OHLCV (`first_df.index`) como índice canónico para plotting/export.
+        # - Alineamos equity/drawdown y cada indicador exportado a ese índice, recortando/paddeando si hace falta.
+        base_index = first_df.index if (first_df is not None and hasattr(first_df, "index")) else equity.index
+
+        def _align_values_to_index(values: Any, index: pd.Index, name: str) -> pd.Series:
+            """
+            Alinea una secuencia (list/np.array/Series) al `index` objetivo:
+              - Si viene más larga -> recorta por la izquierda (conserva el tramo más reciente).
+              - Si viene más corta -> rellena por la izquierda con NaN (para no desplazar el final).
+            """
+            if values is None:
+                return pd.Series(index=index, dtype=float, name=name)
+            try:
+                seq = list(values)
+            except Exception:
+                _log(f"[Backtest][WARN] Indicador {name}: no se pudo convertir a lista -> se ignora")
+                return pd.Series(index=index, dtype=float, name=name)
+
+            n = len(seq)
+            m = len(index)
+            if n == 0 or m == 0:
+                return pd.Series(index=index, dtype=float, name=name)
+
+            if n > m:
+                _log(f"[Backtest][WARN] Indicador {name}: len={n} > base_index={m} -> recorto izquierda")
+                seq = seq[-m:]
+            elif n < m:
+                _log(f"[Backtest][WARN] Indicador {name}: len={n} < base_index={m} -> pad NaN izquierda")
+                seq = ([np.nan] * (m - n)) + seq
+
+            return pd.Series(seq, index=index, name=name)
+
+        equity_plot = pd.Series(equity, copy=False)
+        drawdown_plot = pd.Series(drawdown, copy=False)
+        try:
+            equity_plot = equity_plot.reindex(base_index).ffill()
+            drawdown_plot = drawdown_plot.reindex(base_index).ffill()
+            # Si al principio quedan NaN (por warmup o retornos incompletos), rellenamos hacia atrás para plot.
+            if equity_plot.isna().any():
+                equity_plot = equity_plot.bfill()
+            if drawdown_plot.isna().any():
+                drawdown_plot = drawdown_plot.bfill()
+        except Exception as e:
+            _log(f"[Backtest][WARN] No se pudo reindexar equity/drawdown a base_index: {e}")
+            equity_plot = equity
+            drawdown_plot = drawdown
+
+        ind = pd.DataFrame({"equity": equity_plot, "drawdown": drawdown_plot}, index=base_index)
         indicator_colors = {}  # Metadata de colores para plotting
         if hasattr(strat, "export_indicators") and callable(strat.export_indicators):
             try:
@@ -270,16 +326,24 @@ class Backtest:
                     # Saltar keys de metadata (empiezan con _)
                     if k.startswith('_'):
                         continue
-                    if v and len(v) > 0:  # Verificar que hay datos
-                        # Crear serie con el mismo índice que equity
-                        ser = pd.Series(v, index=equity.index[:len(v)])
-                        # Si la serie es más corta que equity, rellenar con NaN al final
-                        if len(ser) < len(equity):
-                            ser = ser.reindex(equity.index, method='ffill')
-                        ind[str(k)] = ser.values
-                        _log(f"[Backtest] Indicador {k} agregado: {len(ser)} valores")
-                    else:
-                        _log(f"[Backtest][WARN] Indicador {k} vacío o inválido")
+                    if v is None:
+                        _log(f"[Backtest][WARN] Indicador {k} es None -> ignorado")
+                        continue
+
+                    # Evitar `if v` porque con numpy arrays puede lanzar ValueError (truth value ambiguous)
+                    try:
+                        v_len = len(v)
+                    except Exception:
+                        _log(f"[Backtest][WARN] Indicador {k} sin len() -> ignorado")
+                        continue
+
+                    if v_len <= 0:
+                        _log(f"[Backtest][WARN] Indicador {k} vacío (len=0) -> ignorado")
+                        continue
+
+                    ser = _align_values_to_index(v, base_index, name=str(k))
+                    ind[str(k)] = ser.values
+                    _log(f"[Backtest] Indicador {k} agregado: len_in={v_len} len_out={len(ser)}")
             except Exception as e:
                 _log(f"[Backtest][WARN] export_indicators falló: {e}")
                 import traceback
